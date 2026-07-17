@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Build artifacts
+*.zip
+build/
+dist/
+
+# Plugin runtime files
+parthive.log
+plugin.log
+settings.json
+*.parthive-bak
+*.backup
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

@@ -1,0 +1,9 @@
+# Normalize text files to LF in the repository (cross-platform consistency)
+* text=auto eol=lf
+
+# Binary assets — never apply line-ending conversion
+*.png binary
+*.zip binary
+*.step binary
+*.stp binary
+*.wrl binary
