@@ -1,0 +1,22 @@
+{
+  "$schema": "https://go.kicad.org/pcm/schemas/v1",
+  "name": "PartHive Repository",
+  "maintainer": {
+    "name": "neocircuitslab",
+    "contact": {
+      "web": "https://github.com/neocircuitslab/PartHive"
+    }
+  },
+  "packages": {
+    "url": "https://neocircuitslab.github.io/PartHive/packages.json",
+    "sha256": "742c4c05299091ab4ff33d1fa22957b750615a7e3982159e9a697c299ad1c6c7",
+    "update_time_utc": "2026-07-19 17:49:39",
+    "update_timestamp": 1784483379
+  },
+  "resources": {
+    "url": "https://neocircuitslab.github.io/PartHive/resources.zip",
+    "sha256": "3631e8d535a396df60256d0e77fde4474970c867f499a0c8ab77e06f3c0f6014",
+    "update_time_utc": "2026-07-19 17:49:39",
+    "update_timestamp": 1784483379
+  }
+}

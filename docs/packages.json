@@ -1,0 +1,47 @@
+{
+  "$schema": "https://go.kicad.org/pcm/schemas/v1",
+  "packages": [
+    {
+      "$schema": "https://go.kicad.org/pcm/schemas/v1",
+      "name": "PartHive",
+      "description": "Import EasyEDA/JLCPCB (LCSC) parts into a KiCad library",
+      "description_full": "PartHive imports any EasyEDA / JLCPCB (LCSC) component into a local KiCad library from its LCSC part number (e.g. C25804). It creates and links a symbol library (.kicad_sym), a footprint library (.pretty) and a 3D-model library (.3dshapes) inside a single library directory, wires the footprint to the symbol and the 3D model to the footprint, and can register the libraries in KiCad automatically. Footprint reference defaults to '?', symbol/footprint text sizes are configurable, and 3D download can be skipped on slow connections. Built on the AGPL-3.0 easyeda2kicad converter.",
+      "identifier": "com.github.neocircuitslab.parthive",
+      "type": "plugin",
+      "author": {
+        "name": "neocircuitslab",
+        "contact": {
+          "web": "https://github.com/neocircuitslab/PartHive"
+        }
+      },
+      "maintainer": {
+        "name": "neocircuitslab",
+        "contact": {
+          "web": "https://github.com/neocircuitslab/PartHive"
+        }
+      },
+      "license": "AGPL-3.0-or-later",
+      "resources": {
+        "homepage": "https://github.com/neocircuitslab/PartHive"
+      },
+      "tags": [
+        "import",
+        "easyeda",
+        "jlcpcb",
+        "lcsc",
+        "library"
+      ],
+      "versions": [
+        {
+          "version": "1.0.0",
+          "status": "stable",
+          "kicad_version": "7.0",
+          "download_url": "https://github.com/neocircuitslab/PartHive/releases/download/v1.0.0/PartHive-1.0.0.zip",
+          "download_sha256": "d00a848eb3f57987114bc0cb263e59c5906b5802213513817bd6a4b07c7bd5db",
+          "download_size": 113412,
+          "install_size": 334615
+        }
+      ]
+    }
+  ]
+}

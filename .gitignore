@@ -6,7 +6,6 @@ __pycache__/
 venv/
 
 # Build artifacts
-*.zip
 build/
 dist/
 
