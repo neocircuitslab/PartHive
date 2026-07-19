@@ -20,7 +20,7 @@
           "web": "https://github.com/neocircuitslab/PartHive"
         }
       },
-      "license": "AGPL-3.0-or-later",
+      "license": "GPL-3.0",
       "resources": {
         "homepage": "https://github.com/neocircuitslab/PartHive"
       },
@@ -37,9 +37,9 @@
           "status": "stable",
           "kicad_version": "7.0",
           "download_url": "https://github.com/neocircuitslab/PartHive/releases/download/v1.0.0/PartHive-1.0.0.zip",
-          "download_sha256": "d00a848eb3f57987114bc0cb263e59c5906b5802213513817bd6a4b07c7bd5db",
-          "download_size": 113412,
-          "install_size": 334615
+          "download_sha256": "887f92030a923dfffa222c3a33c841d4fb5ec7c955d29ad3171ab9ee037a7e4a",
+          "download_size": 113590,
+          "install_size": 335015
         }
       ]
     }
