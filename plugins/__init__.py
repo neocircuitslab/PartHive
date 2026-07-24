@@ -11,7 +11,7 @@ through the IPC API (``plugin.json`` -> ``parthive_action.py``), but the IPC
 server is OFF by default (*Preferences → Plugins → Enable KiCad API*), so we do
 not rely on it. Both routes open the same dialog.
 
-PartHive is licensed under AGPL-3.0-or-later (see LICENSE).
+PartHive is licensed under GPL-3.0-or-later (see LICENSE).
 """
 
 from __future__ import annotations

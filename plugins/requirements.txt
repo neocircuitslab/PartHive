@@ -1,9 +1,9 @@
 # PartHive has NO third-party pip dependencies.
 #
-# Everything it needs is either:
-#   * the Python standard library (urllib, json, gzip, pathlib, ...), or
-#   * provided by KiCad itself and made available to the plugin's Python
-#     environment:  wxPython (the GUI) and, on the legacy SWIG path, pcbnew.
+# The EasyEDA->KiCad converter (`easyeda2kicad_ph`) is BUNDLED as a git submodule
+# under `easyeda2kicad-ph/` — NeoCircuitsLab's AGPL-3.0 fork of
+# uPesy/easyeda2kicad.py — and shipped inside the plugin package. It is NOT
+# installed from PyPI. Source: https://github.com/neocircuitslab/easyeda2kicad-ph
 #
-# The bundled easyeda2kicad converter (see parthive_ee/, AGPL-3.0) is also
-# pure standard library, so nothing is installed from PyPI.
+# Everything else PartHive needs is the Python standard library or provided by
+# KiCad itself (wxPython, and on the SWIG path, pcbnew).

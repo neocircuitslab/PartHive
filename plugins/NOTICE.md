@@ -1,61 +1,34 @@
 # PartHive — Attribution & Modification Notice
 
-PartHive is a KiCad plugin that imports EasyEDA / JLCPCB (LCSC) components into a
-local KiCad library. It is **licensed under AGPL-3.0-or-later** (see `LICENSE`).
+PartHive's own code (`parthive_*.py`, `__init__.py`, `plugin.json`, `metadata.json`,
+`icon.png`) is licensed **GPL-3.0-or-later** (see `LICENSE`).
 
-## Upstream work this software builds on
+## Bundled converter (AGPL-3.0)
 
-PartHive bundles and builds directly on top of **easyeda2kicad.py**:
+PartHive bundles the EasyEDA→KiCad converter **`easyeda2kicad_ph`**, included as a git
+submodule under `easyeda2kicad-ph/` and shipped inside the plugin package:
 
-- Project: easyeda2kicad.py
-- Author:  uPesy (contact@upesy.com)
-- Source:  https://github.com/uPesy/easyeda2kicad.py
-- License: AGPL-3.0-or-later
-- Copyright (C) uPesy and contributors
+- Package: `easyeda2kicad-ph` (import name `easyeda2kicad_ph`)
+- Source:  https://github.com/neocircuitslab/easyeda2kicad-ph
+- License: **AGPL-3.0-or-later** (preserved in `easyeda2kicad-ph/LICENSE`)
+- It is NeoCircuitsLab's fork of **easyeda2kicad.py** by uPesy
+  (https://github.com/uPesy/easyeda2kicad.py, AGPL-3.0), with configurable footprint
+  reference, configurable text sizes, symbol↔footprint library linking, and a
+  standard-library-only rewrite. Changes are marked with `PartHive:` comments and
+  documented in that repository.
 
-The bundled copy lives in the `parthive_ee/` package — a verbatim copy of
-easyeda2kicad, renamed only so it cannot clash on `sys.path` with other plugins
-that also bundle a package named `easyeda2kicad` (e.g. impartGUI). It remains
-under its original AGPL-3.0-or-later license. Because PartHive is a derivative
-work of an AGPL-licensed program, PartHive as a whole is distributed under
-AGPL-3.0-or-later.
+## Licensing of the combination
 
-## Modifications made by PartHive to the bundled easyeda2kicad
+GPL-3.0 and AGPL-3.0 are compatible: **GPLv3 §13** permits combining a GPL-3.0 work with an
+AGPL-3.0 work into a single program and conveying it. PartHive's own code is GPL-3.0-or-later;
+the bundled converter remains AGPL-3.0-or-later, with its full source public at the URL above.
+The combined work is distributed honoring both licenses.
 
-The following changes were applied to the vendored `parthive_ee/` sources
-(each site is marked with a `PartHive:` comment):
-
-- `parthive_ee/kicad/parameters_kicad_footprint.py`
-  - The footprint reference text is now a parameter (default `?`; upstream used
-    the literal `REF**`).
-  - The footprint text height and stroke thickness are now parameters
-    (default 1.0 mm; upstream hard-coded 0.8 mm / 0.15 mm).
-- `parthive_ee/kicad/export_kicad_footprint.py`
-  - `ExporterFootprintKicad.export()` accepts `reference` and `text_size`.
-- `parthive_ee/kicad/parameters_kicad_symbol.py`
-  - Added `set_property_font_size()` / `property_font_size()` so the symbol
-    field (property) text height is configurable at runtime
-    (PartHive default 1.27 mm; upstream default 1.0 mm).
-
-All other logic that produces the KiCad symbol, footprint, and 3D model is the
-upstream easyeda2kicad code, unmodified.
-
-## PartHive's own code
-
-The files `parthive_*.py`, `__init__.py`, `plugin.json`, `metadata.json`, and
-`icon.png` are original to PartHive.
-
-Copyright (C) 2026 PartHive contributors.
-
-This program is free software: you can redistribute it and/or modify it under
-the terms of the GNU Affero General Public License as published by the Free
-Software Foundation, either version 3 of the License, or (at your option) any
-later version. This program is distributed WITHOUT ANY WARRANTY. See the
-`LICENSE` file for the full text.
+KiCad's Plugin & Content Manager validates `metadata.json`'s `license` field against a fixed
+list that has no AGPL entry, so it is set to `GPL-3.0` (PartHive's own-code license). The
+bundled converter's AGPL license is kept intact in `easyeda2kicad-ph/LICENSE` and disclosed here.
 
 ## Trademarks
 
-"KiCad", "EasyEDA", "JLCPCB", and "LCSC" are trademarks of their respective
-owners. PartHive is an independent project and is not affiliated with,
-endorsed by, or sponsored by any of them. Their names are used here only to
-describe interoperability.
+"KiCad", "EasyEDA", "JLCPCB", and "LCSC" are trademarks of their respective owners. PartHive is
+an independent project and is not affiliated with, endorsed by, or sponsored by any of them.

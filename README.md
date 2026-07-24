@@ -4,9 +4,10 @@ A KiCad plugin that imports **EasyEDA / JLCPCB (LCSC)** components — symbol,
 footprint, and 3D model — into a local KiCad library from a part number
 (e.g. `C25804`), and wires the three together.
 
-> **License: AGPL-3.0-or-later.** PartHive builds on
-> [easyeda2kicad.py](https://github.com/uPesy/easyeda2kicad.py) (uPesy), which is
-> AGPL-3.0. See [`LICENSE`](LICENSE) and [`plugins/NOTICE.md`](plugins/NOTICE.md).
+> **License: GPL-3.0-or-later** (PartHive's own code). It bundles the AGPL-3.0
+> converter [easyeda2kicad_ph](https://github.com/neocircuitslab/easyeda2kicad-ph), a
+> fork of [easyeda2kicad.py](https://github.com/uPesy/easyeda2kicad.py) (uPesy) — a
+> GPL/AGPL-compatible combination. See [`LICENSE`](LICENSE) and [`plugins/NOTICE.md`](plugins/NOTICE.md).
 
 ## Features
 
@@ -28,7 +29,7 @@ plugins/               # the plugin itself (this is what ships)
   __init__.py          #   SWIG action-plugin registration (KiCad 7–10)
   plugin.json          #   IPC API metadata (KiCad 9+)
   parthive_*.py        #   PartHive's own code
-  parthive_ee/         #   vendored easyeda2kicad converter (AGPL-3.0)
+  easyeda2kicad-ph/    #   converter submodule — AGPL-3.0 fork of easyeda2kicad.py
   icon.png, LICENSE, NOTICE.md, README.md, requirements.txt
 resources/icon.png     # 64px+ icon shown in the PCM
 tools/build_zip.py     # builds the installable/PCM .zip

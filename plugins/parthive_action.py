@@ -9,7 +9,7 @@ KiCad's IPC plugin runner executes this file as ``__main__`` in its own process
 The plugin itself only shows a dialog and writes library files — it does not
 touch the open board — so no IPC/board connection is required.
 
-PartHive is licensed under AGPL-3.0-or-later (see LICENSE).
+PartHive is licensed under GPL-3.0-or-later (see LICENSE).
 """
 
 from __future__ import annotations

@@ -14,7 +14,7 @@ Two responsibilities:
     When the directory is *outside* the user profile we fall back to the fixed
     absolute path.
 
-PartHive is licensed under AGPL-3.0-or-later (see LICENSE).
+PartHive is licensed under GPL-3.0-or-later (see LICENSE).
 """
 
 from __future__ import annotations

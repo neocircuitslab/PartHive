@@ -5,11 +5,11 @@ their part number (e.g. `C25804`). PartHive creates and links a symbol library,
 a footprint library, and a 3D-model library inside one directory, then registers
 them in KiCad for you.
 
-> **License: AGPL-3.0-or-later.** PartHive is a derivative work of
-> [easyeda2kicad.py](https://github.com/uPesy/easyeda2kicad.py) by uPesy, which
-> is AGPL-3.0. See [`LICENSE`](LICENSE) and [`NOTICE.md`](NOTICE.md). You may use,
-> modify, redistribute, and sell it, but it must remain open source under
-> AGPL-3.0 and keep the attribution.
+> **License: GPL-3.0-or-later** (PartHive's own code). It bundles the AGPL-3.0
+> converter [easyeda2kicad_ph](https://github.com/neocircuitslab/easyeda2kicad-ph) — a
+> fork of [easyeda2kicad.py](https://github.com/uPesy/easyeda2kicad.py) by uPesy — which
+> is a GPL/AGPL-compatible combination (GPLv3 §13). See [`LICENSE`](LICENSE) and
+> [`NOTICE.md`](NOTICE.md), and keep the converter's attribution intact.
 
 ---
 
@@ -102,7 +102,7 @@ to. Simple mode imports in one click without this dialog.
 ### A. Via KiCad's Plugin & Content Manager (recommended)
 
 1. In KiCad: **Plugins → Plugin and Content Manager → Install from File…**
-2. Pick `PartHive-0.1.6.zip`.
+2. Pick `PartHive-1.0.0.zip`.
 3. Restart KiCad. A **PartHive** button appears in the PCB and Schematic
    editors.
 
@@ -146,7 +146,7 @@ python parthive_action.py
 The brand name lives in one place: the constant `BRAND` in
 [`parthive_paths.py`](parthive_paths.py). Change it, then update `plugin.json`,
 `metadata.json`, the `identifier` (use your own `com.github.<youruser>.<name>`),
-and this README. Keep `LICENSE` and `NOTICE.md` intact (AGPL requirement).
+and this README. Keep `LICENSE`, `NOTICE.md`, and the bundled converter's `easyeda2kicad-ph/LICENSE` intact.
 
 ## Submitting to the official KiCad repository (PCM) later
 
@@ -155,4 +155,4 @@ and this README. Keep `LICENSE` and `NOTICE.md` intact (AGPL requirement).
    `install_size`; add a full `versions[]` entry (with `download_url`) to
    `metadata.json`, and set `status` to `stable` when ready.
 3. Open a merge request against KiCad's addon metadata repository
-   (`gitlab.com/kicad/addons/metadata`). AGPL-3.0 is an accepted license.
+   (`gitlab.com/kicad/addons/metadata`). GPL-3.0 is an accepted license.

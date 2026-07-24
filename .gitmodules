@@ -1,0 +1,3 @@
+[submodule "plugins/easyeda2kicad-ph"]
+	path = plugins/easyeda2kicad-ph
+	url = https://github.com/neocircuitslab/easyeda2kicad-ph

@@ -10,7 +10,7 @@ Design goals:
 * **Honest** – editing the *global* table while KiCad is running means the new
   library only appears after KiCad is restarted; the caller surfaces that.
 
-PartHive is licensed under AGPL-3.0-or-later (see LICENSE).
+PartHive is licensed under GPL-3.0-or-later (see LICENSE).
 """
 
 from __future__ import annotations

@@ -12,7 +12,7 @@ A single dialog that mirrors the agreed layout:
 The dialog runs the import on a worker thread and streams progress back to the
 log via ``wx.CallAfter`` so the UI never freezes.
 
-PartHive is licensed under AGPL-3.0-or-later (see LICENSE).
+PartHive is licensed under GPL-3.0-or-later (see LICENSE).
 """
 
 from __future__ import annotations

@@ -1,7 +1,8 @@
 """PartHive – EasyEDA/JLCPCB(LCSC) component importer.
 
-Thin orchestration layer over the (vendored, AGPL-3.0) ``easyeda2kicad``
-converter. Given an LCSC part number it produces, inside one *library dir*:
+Thin orchestration layer over the ``easyeda2kicad-ph`` converter (a separate
+AGPL-3.0 package, installed at runtime — not bundled). Given an LCSC part number
+it produces, inside one *library dir*:
 
     <library_dir>/<symbol_name>.kicad_sym    (symbol)
     <library_dir>/<footprint_name>.pretty/   (footprint)
@@ -23,7 +24,7 @@ derived from config, then execute) for simple mode and the module-level API.
 PartHive customisations: footprint reference ``?``, configurable text sizes,
 skip-3D, and (when "prefer STEP" is on) STEP-only 3D (the WRL is dropped).
 
-PartHive is licensed under AGPL-3.0-or-later (see LICENSE).
+PartHive is licensed under GPL-3.0-or-later (see LICENSE).
 """
 
 from __future__ import annotations
@@ -35,23 +36,30 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
 
-# Make the plugin's own modules importable. The vendored converter lives in the
-# `parthive_ee` package (a renamed copy of easyeda2kicad — the rename avoids any
-# clash with other plugins that also bundle a package named `easyeda2kicad`).
+# Make the plugin's own sibling modules importable.
 _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from parthive_ee.easyeda.easyeda_api import EasyedaApi  # noqa: E402
-from parthive_ee.easyeda.easyeda_importer import (  # noqa: E402
+# The EasyEDA->KiCad converter is the AGPL-3.0 package `easyeda2kicad_ph`, bundled
+# as a git submodule under `easyeda2kicad-ph/` (NeoCircuitsLab's fork of
+# uPesy/easyeda2kicad.py). Put the submodule dir on sys.path so `easyeda2kicad_ph`
+# resolves both in a git checkout (plugins/easyeda2kicad-ph/easyeda2kicad_ph) and
+# in the packaged plugin (the build copies it to the same relative location).
+_EE_SUBMODULE = _HERE / "easyeda2kicad-ph"
+if _EE_SUBMODULE.is_dir() and str(_EE_SUBMODULE) not in sys.path:
+    sys.path.insert(0, str(_EE_SUBMODULE))
+
+from easyeda2kicad_ph.easyeda.easyeda_api import EasyedaApi  # noqa: E402
+from easyeda2kicad_ph.easyeda.easyeda_importer import (  # noqa: E402
     Easyeda3dModelImporter,
     EasyedaFootprintImporter,
     EasyedaSymbolImporter,
 )
-from parthive_ee.kicad import parameters_kicad_symbol as _sym_params  # noqa: E402
-from parthive_ee.kicad.export_kicad_3d_model import Exporter3dModelKicad  # noqa: E402
-from parthive_ee.kicad.export_kicad_footprint import ExporterFootprintKicad  # noqa: E402
-from parthive_ee.kicad.export_kicad_symbol import (  # noqa: E402
+from easyeda2kicad_ph.kicad import parameters_kicad_symbol as _sym_params  # noqa: E402
+from easyeda2kicad_ph.kicad.export_kicad_3d_model import Exporter3dModelKicad  # noqa: E402
+from easyeda2kicad_ph.kicad.export_kicad_footprint import ExporterFootprintKicad  # noqa: E402
+from easyeda2kicad_ph.kicad.export_kicad_symbol import (  # noqa: E402
     ExporterSymbolKicad,
     id_already_in_symbol_lib,
 )

@@ -6,7 +6,7 @@ directory, which may be read-only for PCM installs):
 * Windows: ``%APPDATA%/PartHive/settings.json``
 * macOS/Linux: ``$XDG_CONFIG_HOME/PartHive/settings.json`` (or ``~/.config/...``)
 
-PartHive is licensed under AGPL-3.0-or-later (see LICENSE).
+PartHive is licensed under GPL-3.0-or-later (see LICENSE).
 """
 
 from __future__ import annotations
