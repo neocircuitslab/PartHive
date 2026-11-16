@@ -1,0 +1,143 @@
+# Build PartHive's KiCad PCM package.
+#
+# * every push to main / pull request: build the zip and keep it 14 days as a
+#   workflow artifact (Actions tab -> the run -> Artifacts), to test before tagging;
+# * a tag "v<version>" (e.g. v1.1.0): build, then publish a GitHub Release with
+#   PartHive-<version>.zip and metadata.json (download_url, sha256, sizes), and
+#   update the PCM registry at https://neocircuitslab.github.io/kicad/repository.json.
+#   Tags with a "-" (v1.2.0-rc1) become pre-releases and do not touch the registry.
+#   The release notes are the description of the tagged commit (or the message
+#   of an annotated tag), so write the changes there.
+#
+# The registry lives in another repository, so that step needs a token: add a
+# fine-grained token with "Contents: read and write" on neocircuitslab.github.io
+# as the repository secret PCM_REGISTRY_TOKEN. Without it the step is skipped.
+
+name: Build and release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write # create the GitHub Release
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY_REPO: neocircuitslab/neocircuitslab.github.io
+  REGISTRY_DIR: docs/kicad
+  PAGES_URL: https://neocircuitslab.github.io/kicad
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      HAS_REGISTRY_TOKEN: ${{ secrets.PCM_REGISTRY_TOKEN != '' }}
+    steps:
+      - name: Check out (with the converter submodule)
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install Pillow (scales the PCM icon to 64x64)
+        run: python -m pip install --quiet pillow
+
+      - name: Syntax check
+        run: python -m compileall -q plugins
+
+      - name: Build the zip
+        id: build
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            python tools/build_zip.py --tag "$GITHUB_REF_NAME"
+          else
+            python tools/build_zip.py
+          fi
+
+      - name: Release metadata
+        run: |
+          zip="${{ steps.build.outputs.zip }}"
+          tag="${GITHUB_REF_NAME}"
+          [[ "$GITHUB_REF" == refs/tags/v* ]] || tag="v${{ steps.build.outputs.version }}"
+          python tools/pcm_registry.py --zip "$zip" \
+            --url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}/$(basename "$zip")" \
+            --out dist/metadata.json
+
+      - name: Keep the build (artifact)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: PartHive-${{ steps.build.outputs.version }}-${{ github.sha }}
+          path: |
+            dist/*.zip
+            dist/metadata.json
+          retention-days: 14
+
+      - name: Publish the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="$GITHUB_REF_NAME"
+          zip="${{ steps.build.outputs.zip }}"
+          # Release notes: the tag's message if it is an annotated tag with a
+          # body, else the description (body) of the tagged commit. GitHub's
+          # generated notes ("Full Changelog" link) are appended below.
+          git fetch --force --quiet origin "refs/tags/$tag:refs/tags/$tag" || true
+          notes=""
+          if [[ "$(git cat-file -t "$tag")" == tag ]]; then
+            notes="$(git for-each-ref "refs/tags/$tag" --format='%(contents:body)')"
+          fi
+          [[ -n "${notes//[[:space:]]/}" ]] || notes="$(git log -1 --format=%b "$tag^{commit}")"
+          printf '%s\n' "$notes" > release-notes.md
+          echo "--- release notes ---"; cat release-notes.md
+          flags=()
+          [[ "$tag" == *-* ]] && flags+=(--prerelease)
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$zip" dist/metadata.json --clobber   # re-run of the same tag
+          else
+            gh release create "$tag" "$zip" dist/metadata.json \
+              --title "PartHive ${{ steps.build.outputs.version }}" \
+              --notes-file release-notes.md --generate-notes --verify-tag "${flags[@]}"
+          fi
+
+      - name: Check out the PCM registry
+        if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-') && env.HAS_REGISTRY_TOKEN == 'true'
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ env.REGISTRY_REPO }}
+          token: ${{ secrets.PCM_REGISTRY_TOKEN }}
+          path: registry
+
+      - name: Update the PCM registry
+        if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-') && env.HAS_REGISTRY_TOKEN == 'true'
+        run: |
+          zip="${{ steps.build.outputs.zip }}"
+          python tools/pcm_registry.py --zip "$zip" \
+            --url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/$(basename "$zip")" \
+            --registry "registry/${REGISTRY_DIR}" --pages-url "$PAGES_URL"
+          cd registry
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$REGISTRY_DIR"
+          if git diff --cached --quiet; then
+            echo "registry already up to date"
+          else
+            git commit -m "PartHive ${{ steps.build.outputs.version }}"
+            git push
+          fi
+
+      - name: Registry skipped
+        if: startsWith(github.ref, 'refs/tags/v') && env.HAS_REGISTRY_TOKEN != 'true'
+        run: echo "::warning::PCM_REGISTRY_TOKEN is not set - the release is out, but neocircuitslab.github.io was not updated."

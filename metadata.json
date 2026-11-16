@@ -2,37 +2,39 @@
   "$schema": "https://go.kicad.org/pcm/schemas/v1",
   "name": "PartHive",
   "description": "Import EasyEDA/JLCPCB (LCSC) parts into a KiCad library",
-  "description_full": "PartHive imports any EasyEDA / JLCPCB (LCSC) component into a local KiCad library from its LCSC part number (e.g. C25804). It creates and links a symbol library (.kicad_sym), a footprint library (.pretty) and a 3D-model library (.3dshapes) inside a single library directory, wires the footprint to the symbol and the 3D model to the footprint, and can register the libraries in KiCad automatically. Footprint reference defaults to '?', symbol/footprint text sizes are configurable, and 3D download can be skipped on slow connections. Built on the AGPL-3.0 easyeda2kicad converter.",
+  "description_full": "PartHive imports a part's symbol, footprint and 3D model from EasyEDA / JLCPCB (LCSC) by its part number (e.g. C25804) into a local KiCad library, links them together, and registers the libraries in KiCad.\n\nLibraries can be registered globally (all projects) or as project libraries (the project's own sym-lib-table / fp-lib-table, using ${KIPRJMOD} paths so the project stays portable). The choice is remembered per project, and two KiCad windows with different projects each keep their own.\n\nProject libraries can be pinned at the top of KiCad's Add Symbol / Add Footprint lists automatically.\n\nEach symbol gets an 'LCSC Part #' field (the C number) and a 'JLCPCB Link' field (the JLCPCB part link).\n\nBundles the AGPL-3.0 converter easyeda2kicad_ph (a fork of uPesy/easyeda2kicad.py).",
   "identifier": "com.github.neocircuitslab.parthive",
   "type": "plugin",
+  "license": "GPL-3.0",
   "author": {
-    "name": "neocircuitslab",
+    "name": "NeoCircuitsLab",
     "contact": {
-      "web": "https://github.com/neocircuitslab/PartHive"
+      "web": "https://github.com/neocircuitslab"
     }
   },
   "maintainer": {
-    "name": "neocircuitslab",
+    "name": "NeoCircuitsLab",
     "contact": {
-      "web": "https://github.com/neocircuitslab/PartHive"
+      "web": "https://github.com/neocircuitslab"
     }
   },
-  "license": "GPL-3.0",
   "resources": {
     "homepage": "https://github.com/neocircuitslab/PartHive"
   },
   "tags": [
-    "import",
     "easyeda",
     "jlcpcb",
     "lcsc",
-    "library"
+    "library",
+    "import",
+    "symbol",
+    "footprint"
   ],
   "versions": [
     {
-      "version": "1.0.1",
+      "version": "1.1.0",
       "status": "stable",
-      "kicad_version": "7.0"
+      "kicad_version": "9.0"
     }
   ]
 }

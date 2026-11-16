@@ -5,19 +5,23 @@ __pycache__/
 .venv/
 venv/
 
-# Build artifacts
+# Build output (GitHub Actions attaches the zip to the Release)
 build/
 dist/
+*.zip
 
-# Plugin runtime files
+# Plugin run-time files
 parthive.log
+*.log
 plugin.log
 settings.json
 *.parthive-bak
 *.backup
+*.tmp
 
 # OS / editor
 .DS_Store
 Thumbs.db
+desktop.ini
 .idea/
 .vscode/

@@ -57,6 +57,7 @@ from easyeda2kicad_ph.easyeda.easyeda_importer import (  # noqa: E402
     EasyedaSymbolImporter,
 )
 from easyeda2kicad_ph.kicad import parameters_kicad_symbol as _sym_params  # noqa: E402
+import parthive_pintypes as pintypes  # noqa: E402
 from easyeda2kicad_ph.kicad.export_kicad_3d_model import Exporter3dModelKicad  # noqa: E402
 from easyeda2kicad_ph.kicad.export_kicad_footprint import ExporterFootprintKicad  # noqa: E402
 from easyeda2kicad_ph.kicad.export_kicad_symbol import (  # noqa: E402
@@ -65,15 +66,31 @@ from easyeda2kicad_ph.kicad.export_kicad_symbol import (  # noqa: E402
 )
 
 from parthive_config import ParthiveConfig  # noqa: E402
+from parthive_fp_fix import (  # noqa: E402
+    sanitize_footprint_file,
+    scan_footprint_dir,
+    validate_footprint_file,
+)
 from parthive_lib_table import (  # noqa: E402
     find_settings_dir,
+    conflict_tables,
+    is_project_dir,
+    nickname_conflict,
+    project_relative_uri,
+    scope_tables,
     register_footprint_library,
     register_symbol_library,
 )
+from parthive_match import ee_pad_count  # noqa: E402
+from parthive_match import reason as match_reason  # noqa: E402
+from parthive_match import suggest as suggest_footprints  # noqa: E402
 from parthive_paths import (  # noqa: E402
     library_paths,
     model_dir_reference,
     portable_path,
+    lib_dir_problem,
+    lib_name_problem,
+    safe_item_name,
     safe_lib_name,
 )
 
@@ -95,6 +112,9 @@ class ItemPlan:
     name: str  # proposed name
     exists: bool  # already present in the target library?
     existing: list = field(default_factory=list)  # existing names of this kind
+    # Footprints only: similar existing footprints, nearest first —
+    # [(name, level 1..3, hover text)] (see parthive_match).
+    suggestions: list = field(default_factory=list)
 
 
 @dataclass
@@ -129,6 +149,9 @@ class ImportResult:
     model_wrl: Optional[Path] = None
     model_step: Optional[Path] = None
     messages: list = field(default_factory=list)
+    # Libraries newly added to a KiCad library table by this import:
+    # [(kind "sym"|"fp", nickname, scope "global"|"project")]
+    registered: list = field(default_factory=list)
 
 
 class ComponentImporter:
@@ -136,10 +159,14 @@ class ComponentImporter:
         self.config = config
         self._log = log or (lambda _msg: None)
         self.api = EasyedaApi()
+        self.registered: list = []
 
-        self.sym_name: str = safe_lib_name(config.symbol_lib_name)
-        self.fp_name: str = safe_lib_name(config.footprint_lib_name)
-        self.model_name: str = safe_lib_name(config.model_lib_name)
+        # Keep the names exactly as chosen: plan() refuses a name that breaks the
+        # rules (lib_name_problem) instead of silently importing somewhere else.
+        # Nothing is written before plan() has checked them.
+        self.sym_name: str = (config.symbol_lib_name or "").strip() or safe_lib_name("")
+        self.fp_name: str = (config.footprint_lib_name or "").strip() or safe_lib_name("")
+        self.model_name: str = (config.model_lib_name or "").strip() or safe_lib_name("")
 
         paths = library_paths(
             Path(config.library_dir).expanduser(),
@@ -207,10 +234,31 @@ class ComponentImporter:
         geometry (the model name is available from the footprint's SVGNODE).
         """
         component_id = component_id.strip().upper()
-        self.log(f"Fetching EasyEDA/LCSC component: {component_id}")
         if not self._valid_id(component_id):
             self.log(f"Invalid LCSC id '{component_id}' — expected e.g. C25804.")
             return None
+        problem = lib_dir_problem(self.library_dir)
+        if problem:
+            self.log(f"Library folder: {problem}")
+            self.log("Nothing imported.")
+            return None
+        for label, nick in (("Symbol", self.sym_name), ("Footprint", self.fp_name),
+                            ("3D", self.model_name)):
+            problem = lib_name_problem(nick)
+            if problem:
+                self.log(f"{label} library '{nick}': {problem}")
+                self.log("Nothing imported.")
+                return None
+        conflicts = self.name_conflicts()
+        if conflicts:
+            for msg in conflicts:
+                self.log(msg)
+            self.log(
+                "Nothing imported. KiCad needs every library name to be unique — pick "
+                "another name with '+ Create new library...'."
+            )
+            return None
+        self.log(f"Fetching EasyEDA/LCSC component: {component_id}")
 
         try:
             cad_data = self.api.get_cad_data_of_component(lcsc_id=component_id)
@@ -218,14 +266,25 @@ class ComponentImporter:
             self.log(f"Network/API error while fetching {component_id}: {exc}")
             return None
         if not cad_data:
-            self.log(f"No CAD data returned for {component_id} (does the part exist?).")
+            err = getattr(self.api, "last_error", None)
+            code = getattr(err, "code", None)
+            if code in (403, 429):
+                self.log(f"EasyEDA refused the request for {component_id} (HTTP {code}). It "
+                         "limits how many parts can be fetched in a short time — wait a few "
+                         "minutes and try again.")
+            elif err is not None:
+                self.log(f"Couldn't reach EasyEDA for {component_id}: {err}")
+            else:
+                self.log(f"No CAD data returned for {component_id} (does the part exist?).")
             return None
 
         plan = ComponentPlan(component_id=component_id, cad_data=cad_data)
 
         try:
             ee_symbol = EasyedaSymbolImporter(easyeda_cp_cad_data=cad_data).get_symbol()
-            sym_name = ee_symbol.info.name
+            # EasyEDA names become file names / the "Item" in "Lib:Item": make
+            # them safe (no : / \ etc., no Windows device names, sane length).
+            sym_name = safe_item_name(ee_symbol.info.name, component_id)
             sym_exists = id_already_in_symbol_lib(str(self.symbol_lib), sym_name)
             plan.symbol = ItemPlan("symbol", sym_name, sym_exists)
         except Exception as exc:  # noqa: BLE001
@@ -233,12 +292,20 @@ class ComponentImporter:
 
         try:
             ee_footprint = EasyedaFootprintImporter(easyeda_cp_cad_data=cad_data).get_footprint()
-            fp_name = ee_footprint.info.name
+            fp_name = safe_item_name(ee_footprint.info.name, component_id)
             fp_exists = (self.footprint_dir / f"{fp_name}.kicad_mod").exists()
             plan.footprint = ItemPlan("footprint", fp_name, fp_exists, self._existing_footprints())
+            try:
+                pads = ee_pad_count(ee_footprint)
+                plan.footprint.suggestions = [
+                    (name, level, match_reason(fp_name, name, level))
+                    for name, level in suggest_footprints(fp_name, pads, self.footprint_dir)
+                ]
+            except Exception:  # noqa: BLE001 - suggestions are a nice-to-have
+                logger.exception("footprint suggestions")
 
             if not self.config.skip_3d and ee_footprint.model_3d is not None:
-                model_name = ee_footprint.model_3d.name
+                model_name = safe_item_name(ee_footprint.model_3d.name, fp_name)
                 model_exists = self._detect_model_ext(model_name) is not None
                 plan.model = ItemPlan("model", model_name, model_exists, self._existing_models())
         except Exception as exc:  # noqa: BLE001
@@ -355,11 +422,28 @@ class ComponentImporter:
             fp_file = self.footprint_dir / f"{fp_name}.kicad_mod"
             ExporterFootprintKicad(footprint=ee_footprint).export(
                 footprint_full_path=str(fp_file),
-                model_3d_path=model_dir_reference(self.model_dir),
+                model_3d_path=self._path_ref(self.model_dir),
                 model_3d_extension=model_ext or "wrl",
                 reference="?",  # PartHive: fixed footprint reference (not user-editable)
                 text_size=self.config.footprint_text_size,
             )
+            # The converter leaves some strings unquoted (footprint name, fp_text
+            # values, ...). KiCad refuses to load the WHOLE .pretty library when it
+            # meets one, so normalise and verify before reporting success.
+            try:
+                changed, notes = sanitize_footprint_file(fp_file, fp_name)
+                if changed:
+                    logger.info("footprint sanitised: %s", "; ".join(notes))
+                    self.log(f"Normalised footprint for KiCad ({len(notes)} fix(es)).")
+                problems = validate_footprint_file(fp_file, fp_name)
+                if problems:
+                    for problem in problems[:5]:
+                        self.log(f"WARNING: footprint may not load in KiCad — {problem}")
+                    logger.warning("footprint validation: %s", problems)
+            except Exception as exc:  # noqa: BLE001
+                self.log(f"Footprint validation skipped ({exc}).")
+                logger.exception("footprint sanitise/validate")
+
             self.log(f"Saved footprint: {fp_file.name}")
             return fp_file
         except Exception as exc:  # noqa: BLE001
@@ -377,6 +461,14 @@ class ComponentImporter:
                 ee_symbol.info.package = fp_link_name  # symbol -> footprint link
             _sym_params.set_property_font_size(self.config.symbol_text_size)
             exporter = ExporterSymbolKicad(symbol=ee_symbol, lib_path=str(self.symbol_lib))
+            # PartHive: sensible electrical pin types (EasyEDA's are mostly
+            # undefined or wrong) — see parthive_pintypes.
+            mode = getattr(self.config, "pin_types", pintypes.MODE_SMART)
+            counts = pintypes.apply(exporter.output, mode, _sym_params.KiPinType)
+            if counts:
+                label = {pintypes.MODE_SMART: "Smart", pintypes.MODE_KEEP: "EasyEDA's",
+                         pintypes.MODE_PASSIVE: "all passive"}.get(mode, mode)
+                self.log(f"Pin types ({label}): {pintypes.summary(counts)}")
             exporter.save_to_lib(
                 lib_path=str(self.symbol_lib),
                 footprint_lib_name=self.fp_name,
@@ -391,25 +483,127 @@ class ComponentImporter:
         finally:
             _sym_params.set_property_font_size(None)
 
+    def name_conflicts(self) -> list:
+        """Messages for each target library whose name KiCad already uses for a
+        DIFFERENT library. Registering would be skipped and the symbol's
+        footprint link would point at the other library, so we stop instead."""
+        if not self.config.auto_register:
+            return []
+        # Check the global table AND the open project's table, whichever card is
+        # selected: inside that project KiCad shows both, and a project library
+        # hides a global one with the same name.
+        open_project = (self.config.project_dir or "").strip() or None
+        out = []
+        for kind, nick, target, label in (
+            ("sym", self.sym_name, self.symbol_lib, "Symbol"),
+            ("fp", self.fp_name, self.footprint_dir, "Footprint"),
+        ):
+            other = nickname_conflict(nick, target, conflict_tables(kind, open_project))
+            if other:
+                out.append(
+                    f"{label} library name '{nick}' is already used in KiCad for "
+                    f"another library: {other}"
+                )
+        return out
+
+    def _project_dir(self) -> Optional[Path]:
+        """The project folder when registering per-project, else None."""
+        if self.config.register_scope != "project":
+            return None
+        raw = (self.config.project_dir or "").strip()
+        return Path(raw).expanduser() if raw else None
+
+    def _path_ref(self, target: Path) -> str:
+        """Path string to store in KiCad files / lib tables for ``target``.
+
+        Project scope + target inside the project -> ``${KIPRJMOD}/...`` (moves
+        with the project). Otherwise the user-profile-portable path.
+        """
+        project = self._project_dir()
+        if project is not None:
+            rel = project_relative_uri(target, project)
+            if rel is not None:
+                return rel
+        if target == self.model_dir:
+            return model_dir_reference(target)
+        return portable_path(target)
+
     def _register_libraries(self) -> None:
         if not self.config.auto_register:
+            return
+        if self.config.register_scope == "project":
+            self._register_project_libraries()
             return
         settings_dir = find_settings_dir()
         if settings_dir is None:
             self.log("Could not locate KiCad settings; register the libraries manually.")
             return
         try:
-            _, sym_msg = register_symbol_library(
-                settings_dir, self.sym_name, portable_path(self.symbol_lib)
-            )
-            _, fp_msg = register_footprint_library(
-                settings_dir, self.fp_name, portable_path(self.footprint_dir)
-            )
-            self.log(f"Symbol library table: {sym_msg}")
-            self.log(f"Footprint library table: {fp_msg}")
+            # Only register what exists (a skipped / failed symbol leaves no
+            # .kicad_sym), and never create a missing global table.
+            sym_changed = fp_changed = False
+            if self.symbol_lib.is_file():
+                sym_changed, sym_msg = register_symbol_library(
+                    settings_dir, self.sym_name, portable_path(self.symbol_lib), create=False
+                )
+                self.log(f"Global symbol library table: {sym_msg}")
+            if self.footprint_dir.is_dir():
+                fp_changed, fp_msg = register_footprint_library(
+                    settings_dir, self.fp_name, portable_path(self.footprint_dir), create=False
+                )
+                self.log(f"Global footprint library table: {fp_msg}")
+            self._note_registered(sym_changed, fp_changed, "global")
+            if sym_changed or fp_changed:
+                self.log("New global library added — restart KiCad to see it.")
         except Exception as exc:  # noqa: BLE001
             self.log(f"Library registration skipped ({exc}); add the libraries manually.")
             logger.exception("lib table registration")
+
+    def _note_registered(self, sym_changed: bool, fp_changed: bool, scope: str) -> None:
+        if sym_changed:
+            self.registered.append(("sym", self.sym_name, scope))
+        if fp_changed:
+            self.registered.append(("fp", self.fp_name, scope))
+
+    def _register_project_libraries(self) -> None:
+        project = self._project_dir()
+        if project is None or not project.is_dir():
+            self.log(
+                "Project library: no project folder set — choose one under "
+                "'Register in', or register the libraries manually."
+            )
+            return
+        if not is_project_dir(project):
+            self.log(
+                f"Project library: no .kicad_pro found in {project} — "
+                "pick the folder that holds your project file."
+            )
+            return
+        try:
+            sym_uri = self._path_ref(self.symbol_lib)
+            fp_uri = self._path_ref(self.footprint_dir)
+            sym_changed = fp_changed = False
+            if self.symbol_lib.is_file():  # only register what exists
+                sym_changed, sym_msg = register_symbol_library(project, self.sym_name, sym_uri)
+                self.log(f"Project symbol library table ({project.name}): {sym_msg}")
+            if self.footprint_dir.is_dir():
+                fp_changed, fp_msg = register_footprint_library(project, self.fp_name, fp_uri)
+                self.log(f"Project footprint library table ({project.name}): {fp_msg}")
+            if not sym_uri.startswith("${KIPRJMOD}"):
+                self.log(
+                    "NOTE: the library dir is outside the project folder, so the "
+                    "project tables use a fixed path. Put the library dir inside the "
+                    "project to make it portable."
+                )
+            self._note_registered(sym_changed, fp_changed, "project")
+            if sym_changed or fp_changed:
+                self.log(
+                    "New project library added — close and reopen the project in "
+                    "KiCad to see it."
+                )
+        except Exception as exc:  # noqa: BLE001
+            self.log(f"Project library registration skipped ({exc}); add it manually.")
+            logger.exception("project lib table registration")
 
     # ------------------------------------------------------------- execute
     def execute(self, plan: ComponentPlan, resolution: Resolution) -> ImportResult:
@@ -476,6 +670,26 @@ class ComponentImporter:
                 else:  # skip
                     self.log(f"Keeping existing symbol: {rs.name}")
 
+            # One malformed footprint stops KiCad loading the WHOLE .pretty library,
+            # which would also hide the footprint just imported. Report that, but
+            # never touch other people's files: only the imported footprint is ever
+            # rewritten. Use "Check library" to repair the rest on request.
+            try:
+                _checked, broken = scan_footprint_dir(self.footprint_dir)
+                broken = [b for b in broken if b[0] != f"{rf.name}.kicad_mod"] if rf else broken
+                if broken:
+                    self.log(
+                        f"NOTE: {len(broken)} other footprint(s) in this library cannot be "
+                        "loaded by KiCad, which hides the whole library (this import "
+                        "included). Use 'Check library' to repair them:"
+                    )
+                    for fname, problem in broken[:5]:
+                        self.log(f"  - {fname}: {problem}")
+                    if len(broken) > 5:
+                        self.log(f"  ... and {len(broken) - 5} more")
+            except Exception:  # noqa: BLE001
+                logger.exception("library scan")
+
             self._register_libraries()
 
             wrote_something = any(
@@ -499,6 +713,7 @@ class ComponentImporter:
                 model_wrl=wrl,
                 model_step=step,
                 messages=messages,
+                registered=list(self.registered),
             )
         finally:
             self._log = base_log

@@ -1,6 +1,11 @@
-# PartHive has NO third-party pip dependencies.
-#
-# The EasyEDA->KiCad converter (`easyeda2kicad_ph`) is BUNDLED as a git submodule
+# kicad-python (kipy) — the official KiCad IPC API client. Only used when
+# PartHive is launched through KiCad's IPC API (plugin.json); KiCad installs it
+# into the plugin's own Python environment. It lets PartHive ask the KiCad
+# instance that launched it which project is open. The classic PCB-editor
+# (SWIG) launch does not need it, and PartHive still works without it.
+kicad-python
+
+# The EasyEDA->KiCad converter (`easyeda2kicad_ph`) is BUNDLED with its full source
 # under `easyeda2kicad-ph/` — NeoCircuitsLab's AGPL-3.0 fork of
 # uPesy/easyeda2kicad.py — and shipped inside the plugin package. It is NOT
 # installed from PyPI. Source: https://github.com/neocircuitslab/easyeda2kicad-ph

@@ -23,6 +23,9 @@ import os
 from pathlib import Path
 
 BRAND = "PartHive"
+# Shown in the dialog title. Keep in step with metadata.json "version" (the
+# PCM zip build checks they match).
+VERSION = "1.1.0"
 DEFAULT_LIB_NAME = "AddedParts"
 
 # Advanced mode organises the library dir into per-type subfolders.
@@ -167,18 +170,98 @@ def library_paths(
     }
 
 
-def safe_lib_name(name: str, default: str = DEFAULT_LIB_NAME) -> str:
-    """Sanitise a library name for safe use as a filename and lib-table nickname.
+# --------------------------------------------------------------------------
+# Name rules
+#
+# A library name becomes a file/folder name (<name>.kicad_sym, <name>.pretty,
+# <name>.3dshapes), a KiCad library nickname (the "Lib" in "Lib:R0603"), and
+# part of a path in KiCad's library tables. Footprint / 3D-model names from
+# EasyEDA become file names too. So a name must be safe for all of them:
+#
+# * no  < > : " / \ | ? *   (illegal on Windows; ':' splits "Lib:Item")
+# * no  $ %                 (KiCad / Windows read ${VAR}, $(VAR), %VAR% as variables)
+# * no  control characters  (tabs, newlines, ...)
+# * not a Windows device name: CON PRN AUX NUL COM1-9 LPT1-9 (with any extension)
+# * no leading/trailing space, no leading or trailing dot
+# * at most MAX_NAME characters (Windows paths stop at 260)
+# --------------------------------------------------------------------------
+_BAD_CHARS = '<>:"/\\|?*$%'
+_RESERVED = (
+    {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"}
+    | {f"COM{i}" for i in range(1, 10)}
+    | {f"LPT{i}" for i in range(1, 10)}
+)
+MAX_NAME = 64
+MAX_DIR_PATH = 180  # leaves room for subfolders + "<name>.pretty\<footprint>.kicad_mod"
 
-    Removes characters illegal in KiCad nicknames and neutralises path traversal
-    (``..`` / separators), so even a hand-edited config cannot escape the library
-    dir when the names are joined into paths.
-    """
-    name = (name or "").strip()
-    for ch in '<>:"/\\|?*':
-        name = name.replace(ch, "_")
+
+def _is_reserved(name: str) -> bool:
+    return name.split(".")[0].strip().upper() in _RESERVED
+
+
+def lib_name_problem(name: str) -> str | None:
+    """Why ``name`` can't be used as a library name, or None if it's fine."""
+    if not (name or "").strip():
+        return "Enter a name."
+    bad = sorted({c for c in name if c in _BAD_CHARS})
+    if bad:
+        return "Library names can't contain " + " ".join(bad) + "."
+    if any(ord(c) < 32 or ord(c) == 127 for c in name):
+        return "Library names can't contain tabs or other control characters."
+    if name != name.strip():
+        return "Library names can't start or end with a space."
+    if name.startswith(".") or name.endswith("."):
+        return "Library names can't start or end with a dot."
+    if _is_reserved(name):
+        return f"'{name}' is a reserved device name on Windows — choose another name."
+    if len(name) > MAX_NAME:
+        return f"Keep library names to {MAX_NAME} characters or fewer."
+    return None
+
+
+def _clean(name: str, limit: int) -> str:
+    name = "".join("_" if (c in _BAD_CHARS or ord(c) < 32 or ord(c) == 127) else c
+                   for c in (name or ""))
     name = name.replace("..", "_").strip(" .")
-    return name or default
+    name = name[:limit].rstrip(" .")
+    if name and _is_reserved(name):
+        stem, dot, rest = name.partition(".")
+        name = f"{stem}_{dot}{rest}"  # "CON" -> "CON_", "lpt9.old" -> "lpt9_.old"
+    return name
+
+
+def safe_lib_name(name: str, default: str = DEFAULT_LIB_NAME) -> str:
+    """Turn any text (e.g. a folder name) into a valid library name by replacing
+    what :func:`lib_name_problem` would reject. Also neutralises path traversal,
+    so even a hand-edited config can't escape the library dir."""
+    return _clean(name, MAX_NAME) or default
+
+
+def safe_item_name(name: str, default: str = "part") -> str:
+    """The same rules for a footprint / 3D-model / symbol name that comes from
+    EasyEDA and becomes a file name or the part after ':' in "Lib:Item"."""
+    return _clean(name, 120) or default
+
+
+def lib_dir_problem(path: str | Path) -> str | None:
+    """Why ``path`` can't be used as a library folder, or None if it's fine."""
+    text = str(path or "").strip()
+    if not text:
+        return "Choose a library folder."
+    if "$" in text or "%" in text:
+        return ("This folder's path contains '$' or '%', which KiCad reads as a "
+                "variable in library paths. Choose a folder without them.")
+    if any(ord(c) < 32 for c in text):
+        return "This folder's path contains control characters. Choose another folder."
+    if len(text) > MAX_DIR_PATH:
+        return (f"This folder's path is {len(text)} characters long. Windows stops at "
+                f"260 for the files inside it — choose a folder with a path under "
+                f"{MAX_DIR_PATH} characters.")
+    parts = Path(text).parts[1:]  # skip the drive
+    bad = next((p for p in parts if _is_reserved(p)), None)
+    if bad:
+        return f"The folder name '{bad}' is reserved on Windows. Choose another folder."
+    return None
 
 
 def _stems(base: Path, suffix: str) -> list[str]:
@@ -206,3 +289,18 @@ def scan_libraries(library_dir: Path, advanced: bool = False) -> dict:
         "footprints": _stems(fp_base, ".pretty"),
         "models": _stems(model_base, ".3dshapes"),
     }
+
+
+def detect_advanced_layout(library_dir: Path, default: bool = True) -> bool:
+    """Auto-detect the on-disk layout of ``library_dir`` (replaces the old manual
+    "Advanced" toggle), so PartHive adapts to whatever a dir already uses:
+
+    * subfolder libraries present (symbols/ footprints/ 3dmodels/) -> True  (advanced)
+    * flat libraries present directly in the dir                   -> False (simple)
+    * empty or missing dir                                         -> ``default``
+    """
+    if any(scan_libraries(library_dir, advanced=True).values()):
+        return True
+    if any(scan_libraries(library_dir, advanced=False).values()):
+        return False
+    return default

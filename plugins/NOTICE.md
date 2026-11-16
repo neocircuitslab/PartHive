@@ -5,8 +5,8 @@ PartHive's own code (`parthive_*.py`, `__init__.py`, `plugin.json`, `metadata.js
 
 ## Bundled converter (AGPL-3.0)
 
-PartHive bundles the EasyEDA→KiCad converter **`easyeda2kicad_ph`**, included as a git
-submodule under `easyeda2kicad-ph/` and shipped inside the plugin package:
+PartHive bundles the EasyEDA→KiCad converter **`easyeda2kicad_ph`**, included with its full
+source in `easyeda2kicad-ph/` of this repository and shipped inside the plugin package:
 
 - Package: `easyeda2kicad-ph` (import name `easyeda2kicad_ph`)
 - Source:  https://github.com/neocircuitslab/easyeda2kicad-ph
